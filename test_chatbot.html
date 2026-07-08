@@ -1,0 +1,1001 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>康复助手 - 测试</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #f0f4f8;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+
+    header {
+      background: #2563eb;
+      color: white;
+      padding: 16px 20px;
+      font-size: 16px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    header span { font-size: 20px; }
+
+    /* ── Config Panel ── */
+    #config {
+      background: #fff;
+      border-bottom: 1px solid #e2e8f0;
+      padding: 12px 20px;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    #config input {
+      flex: 1;
+      min-width: 200px;
+      padding: 8px 12px;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      font-size: 13px;
+    }
+
+    #config button {
+      padding: 8px 16px;
+      background: #2563eb;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 13px;
+    }
+
+    #config button:hover { background: #1d4ed8; }
+
+    #status {
+      font-size: 12px;
+      color: #64748b;
+      width: 100%;
+    }
+
+    /* ── Chat Window ── */
+    #chat {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .msg {
+      max-width: 75%;
+      padding: 12px 16px;
+      border-radius: 16px;
+      font-size: 14px;
+      line-height: 1.6;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .msg.user {
+      align-self: flex-end;
+      background: #2563eb;
+      color: white;
+      border-bottom-right-radius: 4px;
+    }
+
+    .msg.bot {
+      align-self: flex-start;
+      background: white;
+      color: #1e293b;
+      border-bottom-left-radius: 4px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+    }
+
+    .msg.error {
+      align-self: flex-start;
+      background: #fee2e2;
+      color: #dc2626;
+      border-bottom-left-radius: 4px;
+    }
+
+    /* ── Flashcard styles ── */
+    .rehab-card-wrapper {
+      max-width: 560px;
+      width: 100%;
+    }
+
+    .overview-card {
+      background: white;
+      border-radius: 14px;
+      padding: 14px 16px;
+      margin-bottom: 12px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+      font-size: 13px;
+    }
+
+    .overview-card .greeting {
+      font-weight: 700;
+      font-size: 15px;
+      margin-bottom: 10px;
+      color: #1e293b;
+    }
+
+    .overview-stats {
+      background: #f1f5f9;
+      border-radius: 10px;
+      padding: 10px 12px;
+      margin-bottom: 8px;
+      color: #475569;
+      line-height: 1.8;
+    }
+
+    .overview-focus {
+      color: #2563eb;
+      font-size: 13px;
+    }
+
+    /* Swipeable flashcard area */
+    .flashcard-area {
+      position: relative;
+      width: 100%;
+    }
+
+    .flashcard-viewport {
+      overflow: hidden;
+      border-radius: 16px;
+    }
+
+    .flashcard-track {
+      display: flex;
+      transition: transform 0.35s cubic-bezier(.4,0,.2,1);
+    }
+
+    .flashcard-slide {
+      min-width: 100%;
+      box-sizing: border-box;
+    }
+
+    /* Card face */
+    .fc-image {
+      width: 100%;
+      aspect-ratio: 16/9;
+      object-fit: cover;
+      background: linear-gradient(135deg, #dbeafe, #ede9fe);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 48px;
+      color: #94a3b8;
+    }
+
+    .fc-image img {
+      width: 100%;
+      aspect-ratio: 16/9;
+      object-fit: cover;
+    }
+
+    .fc-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: #1e293b;
+      margin: 12px 0 8px;
+    }
+
+    .fc-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 10px;
+    }
+
+    .fc-tag {
+      background: #eff6ff;
+      color: #2563eb;
+      border-radius: 20px;
+      padding: 3px 10px;
+      font-size: 11px;
+      font-weight: 500;
+    }
+
+    .fc-hint {
+      text-align: center;
+      color: #94a3b8;
+      font-size: 12px;
+      margin-top: 10px;
+    }
+
+    /* Back face */
+    .fc-back {
+      background: #f8faff;
+    }
+
+    .fc-section {
+      margin-bottom: 12px;
+    }
+
+    .fc-section-label {
+      font-size: 12px;
+      font-weight: 700;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 4px;
+    }
+
+    .fc-section-text {
+      font-size: 13px;
+      color: #1e293b;
+      line-height: 1.6;
+    }
+
+    .fc-tips {
+      padding-left: 16px;
+      margin: 0;
+    }
+
+    .fc-tips li {
+      font-size: 13px;
+      color: #1e293b;
+      margin-bottom: 4px;
+      line-height: 1.5;
+    }
+
+    .fc-encourage {
+      background: #eff6ff;
+      color: #1d4ed8;
+      border-radius: 10px;
+      padding: 10px 12px;
+      font-style: italic;
+      font-size: 13px;
+      margin-top: 8px;
+    }
+
+    /* Outer wrapper */
+    .fc-outer {
+      position: relative;
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.10);
+      overflow: hidden;
+      margin-bottom: 12px;
+    }
+
+    .fc-counter {
+      position: absolute;
+      top: 12px;
+      right: 14px;
+      background: rgba(0,0,0,0.45);
+      color: white;
+      font-size: 11px;
+      border-radius: 20px;
+      padding: 3px 10px;
+      z-index: 10;
+    }
+
+    .fc-card {
+      width: 100%;
+      background: white;
+      overflow: hidden;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .fc-face {}
+
+    .fc-body {
+      padding: 16px 18px 8px;
+    }
+
+    .fc-back-body {
+      background: #f8faff;
+      padding: 16px 18px;
+      overflow-y: auto;
+      max-height: 420px;
+    }
+
+    .fc-flip-btn {
+      display: inline-block;
+      margin: 10px auto 4px;
+      width: 100%;
+      text-align: center;
+      color: #2563eb;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      padding: 6px 0;
+      border-top: 1px solid #e2e8f0;
+    }
+
+    .fc-flip-btn:hover { background: #f0f7ff; }
+
+    /* Nav */
+    .fc-nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 16px;
+      border-top: 1px solid #e2e8f0;
+      background: #fafafa;
+    }
+
+    .fc-nav-btn {
+      padding: 6px 14px;
+      border-radius: 20px;
+      border: 1px solid #e2e8f0;
+      background: white;
+      cursor: pointer;
+      font-size: 13px;
+      color: #2563eb;
+      font-weight: 600;
+      transition: background 0.15s;
+    }
+
+    .fc-nav-btn:hover { background: #eff6ff; }
+    .fc-nav-btn:disabled { opacity: 0.3; cursor: not-allowed; color: #94a3b8; }
+
+    .fc-dots {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+
+    .fc-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #cbd5e1;
+      transition: all 0.2s;
+    }
+
+    .fc-dot.active {
+      background: #2563eb;
+      width: 22px;
+      border-radius: 4px;
+    }
+
+    /* Closing */
+    .closing-card {
+      background: #fffbeb;
+      border-radius: 14px;
+      padding: 14px 16px;
+      margin-top: 12px;
+      font-size: 13px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+    }
+
+    /* raw JSON toggle */
+    .toggle-raw {
+      font-size: 11px;
+      color: #94a3b8;
+      cursor: pointer;
+      margin-top: 10px;
+      text-decoration: underline;
+      text-align: center;
+    }
+
+    .raw-json {
+      display: none;
+      background: #1e293b;
+      color: #7dd3fc;
+      border-radius: 8px;
+      padding: 10px;
+      font-size: 11px;
+      font-family: monospace;
+      white-space: pre-wrap;
+      margin-top: 6px;
+      overflow-x: auto;
+    }
+
+    .typing {
+      align-self: flex-start;
+      color: #94a3b8;
+      font-size: 13px;
+      padding: 8px 0;
+    }
+
+    /* ── Input Bar ── */
+    #inputbar {
+      background: white;
+      border-top: 1px solid #e2e8f0;
+      padding: 12px 16px;
+      display: flex;
+      gap: 10px;
+    }
+
+    #inputbar input {
+      flex: 1;
+      padding: 10px 14px;
+      border: 1px solid #cbd5e1;
+      border-radius: 24px;
+      font-size: 14px;
+      outline: none;
+    }
+
+    #inputbar input:focus { border-color: #2563eb; }
+
+    #inputbar button {
+      padding: 10px 20px;
+      background: #2563eb;
+      color: white;
+      border: none;
+      border-radius: 24px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+
+    #inputbar button:disabled {
+      background: #93c5fd;
+      cursor: not-allowed;
+    }
+
+    #inputbar button:hover:not(:disabled) { background: #1d4ed8; }
+
+    /* ── Tabs ── */
+    .fc-tabs {
+      display: flex;
+      gap: 6px;
+      padding: 12px 16px 0;
+      background: white;
+      overflow-x: auto;
+      scrollbar-width: none;
+      border-bottom: 2px solid #e2e8f0;
+    }
+
+    .fc-tabs::-webkit-scrollbar { display: none; }
+
+    .fc-tab {
+      padding: 7px 14px;
+      border-radius: 10px 10px 0 0;
+      font-size: 12px;
+      font-weight: 600;
+      color: #94a3b8;
+      cursor: pointer;
+      white-space: nowrap;
+      border: 2px solid transparent;
+      border-bottom: none;
+      transition: all 0.15s;
+      background: #f8fafc;
+      margin-bottom: -2px;
+    }
+
+    .fc-tab:hover { color: #2563eb; background: #eff6ff; }
+
+    .fc-tab.active {
+      color: #2563eb;
+      background: white;
+      border-color: #e2e8f0;
+      border-bottom-color: white;
+    }
+
+    /* Touch swipe support */
+    .fc-card { touch-action: pan-y; }
+  </style>
+</head>
+<body>
+
+<header>
+  <span>🏥</span> 康复助手测试界面
+</header>
+
+<!-- Config -->
+<div id="config">
+  <input id="apiKey" type="password" placeholder="粘贴你的 Dify API Key（sk-...）" />
+  <input id="apiUrl" type="text" placeholder="Dify API URL" value="http://localhost:9090" />
+  <input id="userId" type="text" placeholder="User ID（默认：15）" value="15" style="max-width:160px" />
+  <button onclick="saveConfig()">保存设置</button>
+  <div id="status">⚙️ 请先填入 API Key 再开始对话</div>
+</div>
+
+<!-- Chat -->
+<div id="chat"></div>
+
+<!-- Input -->
+<div id="inputbar">
+  <input id="userInput" type="text" placeholder="输入消息..." onkeydown="if(event.key==='Enter') sendMessage()" />
+  <button id="sendBtn" onclick="sendMessage()">发送</button>
+</div>
+
+<script>
+  let conversationId = "";
+  let apiKey = "";
+  let apiUrl = "http://localhost:9090";
+  let userId = "15";
+
+  function saveConfig() {
+    apiKey = document.getElementById("apiKey").value.trim();
+    apiUrl = document.getElementById("apiUrl").value.trim() || "http://localhost:9090";
+    userId = document.getElementById("userId").value.trim() || "15";
+    if (!apiKey) {
+      setStatus("❌ 请填入 API Key");
+      return;
+    }
+    setStatus("✅ 设置已保存，可以开始对话了！");
+  }
+
+  function setStatus(msg) {
+    document.getElementById("status").textContent = msg;
+  }
+
+  // Convert Dify format {description, details} into card format {greeting, overview, tasks}
+  function convertDifyFormat(data) {
+    const desc = data.description || "";
+
+    // Extract greeting (first line before 【总体信息】)
+    let greeting = desc.split("【总体信息】")[0].trim();
+    if (!greeting) greeting = "你好！以下是为您制定的今日康复计划 💪";
+
+    // Extract overview fields from description text
+    const ageMatch = desc.match(/年龄[：:]\s*([^\s，,]+)/);
+    const genderMatch = desc.match(/性别[：:]\s*([^\s，,\n]+)/);
+    const jointMatch = desc.match(/重点康复部位[：:]\s*([^\n]+)/);
+    const typeMatch = desc.match(/今日训练类型[：:]\s*([^\n]+)/);
+    const durationMatch = desc.match(/预计总时长[：:]\s*([^\n]+)/);
+
+    const details = data.details || [];
+
+    const overview = {
+      age: ageMatch ? ageMatch[1] : "",
+      gender: genderMatch ? genderMatch[1] : "",
+      joint: jointMatch ? jointMatch[1] : "",
+      task_count: details.length,
+      focus: typeMatch ? `今日训练类型：${typeMatch[1]}${durationMatch ? '，预计总时长：' + durationMatch[1] : ''}` : ""
+    };
+
+    // Build tasks by extracting each task's section from description text
+    const tasks = details.map((d, i) => {
+      const taskNum = i + 1;
+      // Try to find this task's block of text in the description
+      const taskRegex = new RegExp(`任务${taskNum}[：:]([\\s\\S]*?)(?=任务${taskNum + 1}[：:]|【温馨提示|$)`);
+      const taskMatch = desc.match(taskRegex);
+      const taskText = taskMatch ? taskMatch[1] : "";
+
+      const howToPlay = (taskText.match(/训练目的[：:]([^\n]+)/) || [])[1] || "";
+      const whyThis = (taskText.match(/操作建议[：:]([^\n]+)/) || [])[1] || "";
+      const tips = (taskText.match(/注意事项[：:]([^\n]+)/) || [])[1] || "";
+      const controlText = (taskText.match(/控制方式[：:]([\s\S]*?)(?=训练目的|$)/) || [])[1] || "";
+
+      const freedoms = d.gameSettingDetails || [];
+      const triggerParts = freedoms.map((f, idx) =>
+        `方案${idx + 1}：${f.trainingAction}，通过${(f.controlMethod||"").toUpperCase()}控制`
+      );
+
+      return {
+        index: taskNum,
+        game_name: d.gameName || "",
+        image_url: d.imageUrl || d.image_url || "",
+        train_part: freedoms.map(f => f.trainingAction).join(" / "),
+        duration_min: d.goalTime || 0,
+        target_score: d.goalScore || 0,
+        difficulty: "中级",
+        how_to_play: controlText.trim() || "请参考完整说明",
+        why_this: howToPlay.trim() || "",
+        trigger: triggerParts.join(" / "),
+        tips: tips ? [tips.trim()] : ["如有不适请暂停休息"],
+        encouragement: whyThis.trim() || "加油，你做得很好！"
+      };
+    });
+
+    // Extract closing section
+    const closingMatch = desc.match(/【温馨提示与鼓励】([\s\S]*)$/);
+    const closingText = closingMatch ? closingMatch[1].trim() : "";
+
+    return {
+      greeting,
+      overview,
+      tasks,
+      overall_advice: closingText,
+      closing_encouragement: ""
+    };
+  }
+
+  // Convert the new Dify format {overview:{nickname,age,sex,joint}, tasks:[...], total_duration, note}
+  function convertNewFormat(data) {
+    const ov = data.overview || {};
+    const greeting = ov.nickname
+      ? `${ov.nickname}，你好！以下是为您制定的今日康复计划 💪`
+      : "你好！以下是为您制定的今日康复计划 💪";
+
+    const focusParts = [];
+    if (ov.joint) focusParts.push(`重点康复部位：${ov.joint}`);
+    if (data.total_duration) focusParts.push(`预计总时长：${data.total_duration}分钟`);
+
+    const overview = {
+      age: ov.age || "",
+      gender: ov.sex || "",
+      task_count: (data.tasks || []).length,
+      focus: focusParts.join("，")
+    };
+
+    const tasks = (data.tasks || []).map((d, i) => {
+      const freedoms = d.gameSettingDetails || [];
+      const triggerParts = freedoms.map((f, idx) =>
+        `方案${idx + 1}：${f.trainingAction}，通过${(f.controlMode || f.controlMethod || "").toUpperCase()}控制`
+      );
+      return {
+        index: i + 1,
+        game_name: d.game_name || d.gameName || "",
+        image_url: d.image_url || d.imageUrl || "",
+        train_part: freedoms.map(f => f.trainingAction).join(" / "),
+        duration_min: d.duration_min || d.goalTime || 0,
+        target_score: d.goalScore || 0,
+        difficulty: "中级",
+        how_to_play: d.how_to_play || "请参考完整说明",
+        why_this: d.why_this || "",
+        trigger: d.trigger || triggerParts.join(" / "),
+        tips: d.tips && d.tips.length ? d.tips : ["如有不适请暂停休息"],
+        encouragement: d.encouragement || "加油，你做得很好！"
+      };
+    });
+
+    return {
+      greeting,
+      overview,
+      tasks,
+      overall_advice: data.note || "",
+      closing_encouragement: ""
+    };
+  }
+
+  function appendMsg(content, type) {
+    const chat = document.getElementById("chat");
+
+    // Try to parse as JSON for pretty display
+    if (type === "bot") {
+      let parsed = null;
+      try {
+        let clean = content.replace(/```json|```/g, "").trim();
+        const start = clean.indexOf("{");
+        const end = clean.lastIndexOf("}");
+        if (start !== -1 && end !== -1) {
+          clean = clean.slice(start, end + 1);
+        }
+        parsed = JSON.parse(clean);
+      } catch(e) {
+        console.error("JSON parse error:", e, content.slice(0, 200));
+      }
+
+      // Handle Dify format: {description, details}
+      if (parsed && parsed.description && parsed.details) {
+        const converted = convertDifyFormat(parsed);
+        appendJsonCard(converted);
+        chat.scrollTop = chat.scrollHeight;
+        return;
+      }
+
+      // Handle new Dify format: {overview:{nickname,age,sex,joint}, tasks:[{game_name,...}], total_duration, note}
+      if (parsed && parsed.overview && parsed.tasks && !parsed.greeting) {
+        const converted = convertNewFormat(parsed);
+        appendJsonCard(converted);
+        chat.scrollTop = chat.scrollHeight;
+        return;
+      }
+
+      // Handle native card format: {greeting, overview, tasks}
+      if (parsed && parsed.tasks) {
+        appendJsonCard(parsed);
+        chat.scrollTop = chat.scrollHeight;
+        return;
+      }
+    }
+
+    const div = document.createElement("div");
+    div.className = `msg ${type}`;
+    div.textContent = content;
+    chat.appendChild(div);
+    chat.scrollTop = chat.scrollHeight;
+  }
+
+  function appendJsonCard(data) {
+    const chat = document.getElementById("chat");
+    const wrapper = document.createElement("div");
+    wrapper.className = "msg bot rehab-card-wrapper";
+    wrapper.style.padding = "0";
+    wrapper.style.background = "transparent";
+    wrapper.style.boxShadow = "none";
+    wrapper.style.maxWidth = "600px";
+    wrapper.style.width = "100%";
+
+    const cardId = "fc_" + Date.now() + "_" + Math.random().toString(36).slice(2, 9);
+    const total = data.tasks.length;
+
+    // ── Overview ──
+    let html = `<div class="overview-card">`;
+    html += `<div class="greeting">${data.greeting}</div>`;
+    html += `<div class="overview-stats">👤 ${data.overview.age} / ${data.overview.gender} &nbsp;|&nbsp; 🦴 ${data.overview.task_count} 个任务</div>`;
+    html += `<div class="overview-focus">🎯 ${data.overview.focus}</div>`;
+    html += `</div>`;
+
+    // ── Tabs ──
+    html += `<div class="fc-outer">`;
+    html += `<div class="fc-tabs" id="${cardId}_tabs">`;
+    data.tasks.forEach((task, i) => {
+      html += `<div class="fc-tab ${i===0?'active':''}" id="${cardId}_tab_${i}" onclick="goToCard('${cardId}',${i},${total})">任务${task.index}：${task.game_name}</div>`;
+    });
+    html += `</div>`;
+
+    // Counter badge
+    html += `<div class="fc-counter" id="${cardId}_counter">1 / ${total}</div>`;
+
+    // Card body
+    html += `<div class="fc-card" id="${cardId}_card">`;
+
+    // All task fronts + backs, only first visible
+    data.tasks.forEach((task, i) => {
+      const visible = i === 0 ? "" : 'style="display:none"';
+
+      // FRONT
+      html += `<div class="fc-face fc-front-face" id="${cardId}_front_${i}" ${visible}>`;
+      // Image
+      html += `<div class="fc-image">`;
+      if (task.image_url) {
+        html += `<img src="${task.image_url}" alt="${task.game_name}" onerror="this.parentElement.innerHTML='🎮'"/>`;
+      } else {
+        html += `🎮`;
+      }
+      html += `</div>`;
+      // Content
+      html += `<div class="fc-body">`;
+      html += `<div class="fc-title">🎮 任务 ${task.index}：${task.game_name}</div>`;
+      html += `<div class="fc-tags">`;
+      html += `<span class="fc-tag">🎯 ${task.train_part}</span>`;
+      html += `<span class="fc-tag">⏱ ${task.duration_min}分钟</span>`;
+      html += `<span class="fc-tag">🏆 ${task.target_score}分</span>`;
+      html += `<span class="fc-tag">📈 ${task.difficulty}</span>`;
+      html += `</div>`;
+      html += `<div class="fc-section"><div class="fc-section-label">🕹 游戏玩法</div><div class="fc-section-text">${task.how_to_play}</div></div>`;
+      html += `<div class="fc-section"><div class="fc-section-label">⚠️ 注意事项</div><ul class="fc-tips">`;
+      task.tips.forEach(t => { html += `<li>${t}</li>`; });
+      html += `</ul></div>`;
+      html += `<div class="fc-flip-btn" onclick="flipCard('${cardId}',${i})">查看详情 ↓</div>`;
+      html += `</div></div>`; // fc-body, fc-front-face
+
+      // BACK
+      html += `<div class="fc-face fc-back-face" id="${cardId}_back_${i}" style="display:none">`;
+      html += `<div class="fc-body fc-back-body">`;
+      html += `<div class="fc-title">🎮 任务 ${task.index}：${task.game_name}</div>`;
+      html += `<div class="fc-section"><div class="fc-section-label">💡 为什么做？</div><div class="fc-section-text">${task.why_this}</div></div>`;
+      html += `<div class="fc-section"><div class="fc-section-label">🤝 动作触发（可任选一种佩戴方案）</div><div class="fc-section-text">${task.trigger.replace(/[；;]\s*(?=方案\d)/g, "<br/>").replace(/ \/ /g, "<br/>")}</div></div>`;
+      html += `<div class="fc-encourage">💪 ${task.encouragement}</div>`;
+      html += `<div class="fc-flip-btn" onclick="flipCard('${cardId}',${i})">收起 ↑</div>`;
+      html += `</div></div>`; // fc-body, fc-back-face
+    });
+
+    html += `</div>`; // fc-card
+
+    // ── Nav: dots only ──
+    html += `<div class="fc-nav">`;
+    html += `<div class="fc-dots" id="${cardId}_dots">`;
+    data.tasks.forEach((_, i) => {
+      html += `<div class="fc-dot ${i===0?'active':''}" id="${cardId}_dot_${i}"></div>`;
+    });
+    html += `</div>`;
+    html += `</div>`;
+
+    html += `</div>`; // fc-outer
+
+    // ── Closing ──
+    html += `<div class="closing-card">`;
+    html += `<div style="font-weight:600;margin-bottom:6px">📋 整体建议</div>`;
+    html += `<div style="font-size:13px;color:#475569;margin-bottom:10px">${data.overall_advice}</div>`;
+    html += `<div style="font-weight:600;margin-bottom:6px">🌟 今日鼓励</div>`;
+    html += `<div style="font-size:13px;color:#1d4ed8">${data.closing_encouragement}</div>`;
+    html += `</div>`;
+
+    // Raw toggle
+    const rawId = "raw_" + cardId;
+    html += `<div class="toggle-raw" onclick="toggleRaw('${rawId}')">查看原始 JSON</div>`;
+    html += `<div id="${rawId}" class="raw-json">${JSON.stringify(data, null, 2)}</div>`;
+
+    wrapper.innerHTML = html;
+    // store current index on the wrapper
+    wrapper.dataset.current = "0";
+    wrapper.dataset.cardId = cardId;
+    chat.appendChild(wrapper);
+    chat.scrollTop = chat.scrollHeight;
+  }
+
+  function flipCard(cardId, index) {
+    const front = document.getElementById(`${cardId}_front_${index}`);
+    const back  = document.getElementById(`${cardId}_back_${index}`);
+    if (!front || !back) return;
+    const isBack = back.style.display !== "none";
+    front.style.display = isBack ? "" : "none";
+    back.style.display  = isBack ? "none" : "";
+  }
+
+  function goToCard(cardId, next, total) {
+    const wrappers = document.querySelectorAll(".rehab-card-wrapper");
+    let wrapper = null;
+    for (const w of wrappers) { if (w.dataset.cardId === cardId) { wrapper = w; break; } }
+    if (!wrapper) return;
+
+    const current = parseInt(wrapper.dataset.current || "0");
+    if (next === current) return;
+
+    // Hide current
+    const curFront = document.getElementById(`${cardId}_front_${current}`);
+    const curBack  = document.getElementById(`${cardId}_back_${current}`);
+    if (curFront) curFront.style.display = "none";
+    if (curBack)  curBack.style.display  = "none";
+
+    // Show next front (reset to front face)
+    const nxtFront = document.getElementById(`${cardId}_front_${next}`);
+    const nxtBack  = document.getElementById(`${cardId}_back_${next}`);
+    if (nxtFront) nxtFront.style.display = "";
+    if (nxtBack)  nxtBack.style.display  = "none";
+
+    // Update counter
+    const counter = document.getElementById(`${cardId}_counter`);
+    if (counter) counter.textContent = `${next + 1} / ${total}`;
+
+    // Update dots
+    for (let i = 0; i < total; i++) {
+      const dot = document.getElementById(`${cardId}_dot_${i}`);
+      if (dot) dot.className = `fc-dot ${i === next ? "active" : ""}`;
+      const tab = document.getElementById(`${cardId}_tab_${i}`);
+      if (tab) tab.className = `fc-tab ${i === next ? "active" : ""}`;
+    }
+
+    // Scroll active tab into view
+    const activeTab = document.getElementById(`${cardId}_tab_${next}`);
+    if (activeTab) activeTab.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+
+    wrapper.dataset.current = String(next);
+  }
+
+  function slideCard(cardId, dir, total) {
+    const wrappers = document.querySelectorAll(".rehab-card-wrapper");
+    let wrapper = null;
+    for (const w of wrappers) { if (w.dataset.cardId === cardId) { wrapper = w; break; } }
+    if (!wrapper) return;
+    const current = parseInt(wrapper.dataset.current || "0");
+    goToCard(cardId, Math.max(0, Math.min(total - 1, current + dir)), total);
+  }
+
+  // Touch swipe support
+  (function setupSwipe() {
+    let touchStartX = 0;
+    let touchCardId = null;
+    let touchTotal = 0;
+
+    document.addEventListener("touchstart", e => {
+      const card = e.target.closest(".fc-card");
+      if (!card) return;
+      const wrapper = card.closest(".rehab-card-wrapper");
+      if (!wrapper) return;
+      touchStartX = e.touches[0].clientX;
+      touchCardId = wrapper.dataset.cardId;
+      // find total by counting fronts
+      let i = 0;
+      while (document.getElementById(`${touchCardId}_front_${i}`)) i++;
+      touchTotal = i;
+    }, { passive: true });
+
+    document.addEventListener("touchend", e => {
+      if (!touchCardId) return;
+      const dx = e.changedTouches[0].clientX - touchStartX;
+      if (Math.abs(dx) > 50) {
+        slideCard(touchCardId, dx < 0 ? 1 : -1, touchTotal);
+      }
+      touchCardId = null;
+    }, { passive: true });
+
+    // Mouse drag support for desktop
+    let mouseStartX = 0;
+    let mouseCardId = null;
+    let mouseTotal = 0;
+    let isDragging = false;
+
+    document.addEventListener("mousedown", e => {
+      const card = e.target.closest(".fc-card");
+      if (!card) return;
+      const wrapper = card.closest(".rehab-card-wrapper");
+      if (!wrapper) return;
+      mouseStartX = e.clientX;
+      mouseCardId = wrapper.dataset.cardId;
+      let i = 0;
+      while (document.getElementById(`${mouseCardId}_front_${i}`)) i++;
+      mouseTotal = i;
+      isDragging = true;
+    });
+
+    document.addEventListener("mouseup", e => {
+      if (!isDragging || !mouseCardId) return;
+      const dx = e.clientX - mouseStartX;
+      if (Math.abs(dx) > 60) {
+        slideCard(mouseCardId, dx < 0 ? 1 : -1, mouseTotal);
+      }
+      isDragging = false;
+      mouseCardId = null;
+    });
+  })();
+
+  function toggleRaw(id) {
+    const el = document.getElementById(id);
+    el.style.display = el.style.display === "block" ? "none" : "block";
+  }
+
+  let isSending = false;
+
+  async function sendMessage() {
+    if (isSending) return;
+
+    if (!apiKey) {
+      setStatus("❌ 请先填入 API Key 并点击保存设置");
+      return;
+    }
+
+    const input = document.getElementById("userInput");
+    const msg = input.value.trim();
+    if (!msg) return;
+
+    isSending = true;
+    input.value = "";
+    appendMsg(msg, "user");
+
+    const sendBtn = document.getElementById("sendBtn");
+    sendBtn.disabled = true;
+
+    // Typing indicator
+    const chat = document.getElementById("chat");
+    const typing = document.createElement("div");
+    typing.className = "typing";
+    typing.textContent = "康复助手正在回复...";
+    chat.appendChild(typing);
+    chat.scrollTop = chat.scrollHeight;
+
+    try {
+      const res = await fetch(`${apiUrl}/chat-messages`, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${apiKey}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          inputs: {
+            user_id: userId
+          },
+          query: msg,
+          response_mode: "blocking",
+          conversation_id: conversationId,
+          user: "test-user"
+        })
+      });
+
+      const data = await res.json();
+      typing.remove();
+
+      if (!res.ok) {
+        if (data.message && data.message.includes("Query is required")) {
+          appendMsg("抱歉，刚才没有收到完整的消息内容，可以试试重新发一次「今天的康复计划」或「制定新计划」～", "error");
+        } else {
+          appendMsg(`API 错误：${data.message || res.status}`, "error");
+        }
+      } else {
+        conversationId = data.conversation_id || conversationId;
+        appendMsg(data.answer, "bot");
+        setStatus(`✅ 对话进行中（会话ID：${conversationId.slice(0,8)}...）`);
+      }
+    } catch (err) {
+      typing.remove();
+      appendMsg(`网络错误：${err.message}`, "error");
+    }
+
+    sendBtn.disabled = false;
+    isSending = false;
+    input.focus();
+  }
+</script>
+
+</body>
+</html>
