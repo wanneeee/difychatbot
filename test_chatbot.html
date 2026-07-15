@@ -479,6 +479,70 @@
 
     /* Touch swipe support */
     .fc-card { touch-action: pan-y; }
+
+    /* ── Task grid (compact overview) ── */
+    .task-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .task-tile {
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+      overflow: hidden;
+      cursor: pointer;
+      border: 2px solid transparent;
+      transition: border-color 0.15s, transform 0.1s;
+    }
+
+    .task-tile:hover { transform: translateY(-2px); }
+    .task-tile.active { border-color: #2563eb; }
+
+    .task-tile-img {
+      width: 100%;
+      aspect-ratio: 1/1;
+      background: linear-gradient(135deg, #dbeafe, #ede9fe);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 28px;
+      color: #94a3b8;
+      position: relative;
+    }
+
+    .task-tile-img img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .task-tile-time {
+      position: absolute;
+      bottom: 4px;
+      right: 4px;
+      background: rgba(0,0,0,0.55);
+      color: white;
+      font-size: 10px;
+      border-radius: 10px;
+      padding: 1px 6px;
+    }
+
+    .task-tile-name {
+      font-size: 11px;
+      font-weight: 600;
+      color: #1e293b;
+      padding: 6px 6px;
+      text-align: center;
+      line-height: 1.3;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .task-detail { display: none; }
   </style>
 </head>
 <body>
@@ -715,7 +779,23 @@
     html += `<div class="overview-focus">🎯 ${data.overview.focus}</div>`;
     html += `</div>`;
 
-    // ── Tabs ──
+    // ── Compact grid: small image, name, time — click to see details ──
+    html += `<div class="task-grid" id="${cardId}_grid">`;
+    data.tasks.forEach((task, i) => {
+      html += `<div class="task-tile" id="${cardId}_tile_${i}" onclick="openTask('${cardId}',${i},${total})">`;
+      html += `<div class="task-tile-img">`;
+      html += task.image_url
+        ? `<img src="${task.image_url}" alt="${task.game_name}" onerror="this.parentElement.innerHTML='🎮'"/>`
+        : `🎮`;
+      html += `<div class="task-tile-time">⏱ ${task.duration_min}分</div>`;
+      html += `</div>`;
+      html += `<div class="task-tile-name">${task.game_name}</div>`;
+      html += `</div>`;
+    });
+    html += `</div>`; // task-grid
+
+    // ── Detail view (hidden until a tile is clicked) ──
+    html += `<div class="task-detail" id="${cardId}_detail">`;
     html += `<div class="fc-outer">`;
     html += `<div class="fc-tabs" id="${cardId}_tabs">`;
     data.tasks.forEach((task, i) => {
@@ -729,9 +809,9 @@
     // Card body
     html += `<div class="fc-card" id="${cardId}_card">`;
 
-    // All task fronts + backs, only first visible
+    // All task fronts + backs, hidden until opened via tile click
     data.tasks.forEach((task, i) => {
-      const visible = i === 0 ? "" : 'style="display:none"';
+      const visible = 'style="display:none"';
 
       // FRONT
       html += `<div class="fc-face fc-front-face" id="${cardId}_front_${i}" ${visible}>`;
@@ -782,6 +862,7 @@
     html += `</div>`;
 
     html += `</div>`; // fc-outer
+    html += `</div>`; // task-detail
 
     // ── Closing ──
     html += `<div class="closing-card">`;
@@ -813,38 +894,37 @@
     back.style.display  = isBack ? "none" : "";
   }
 
+  function openTask(cardId, next, total) {
+    const detail = document.getElementById(`${cardId}_detail`);
+    if (detail) detail.style.display = "";
+    goToCard(cardId, next, total);
+    if (detail) detail.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }
+
   function goToCard(cardId, next, total) {
     const wrappers = document.querySelectorAll(".rehab-card-wrapper");
     let wrapper = null;
     for (const w of wrappers) { if (w.dataset.cardId === cardId) { wrapper = w; break; } }
     if (!wrapper) return;
 
-    const current = parseInt(wrapper.dataset.current || "0");
-    if (next === current) return;
-
-    // Hide current
-    const curFront = document.getElementById(`${cardId}_front_${current}`);
-    const curBack  = document.getElementById(`${cardId}_back_${current}`);
-    if (curFront) curFront.style.display = "none";
-    if (curBack)  curBack.style.display  = "none";
-
-    // Show next front (reset to front face)
-    const nxtFront = document.getElementById(`${cardId}_front_${next}`);
-    const nxtBack  = document.getElementById(`${cardId}_back_${next}`);
-    if (nxtFront) nxtFront.style.display = "";
-    if (nxtBack)  nxtBack.style.display  = "none";
-
-    // Update counter
-    const counter = document.getElementById(`${cardId}_counter`);
-    if (counter) counter.textContent = `${next + 1} / ${total}`;
-
-    // Update dots
+    // Hide/show all faces (idempotent, so it also works for the first open)
     for (let i = 0; i < total; i++) {
+      const front = document.getElementById(`${cardId}_front_${i}`);
+      const back  = document.getElementById(`${cardId}_back_${i}`);
+      if (front) front.style.display = i === next ? "" : "none";
+      if (back)  back.style.display  = "none";
+
       const dot = document.getElementById(`${cardId}_dot_${i}`);
       if (dot) dot.className = `fc-dot ${i === next ? "active" : ""}`;
       const tab = document.getElementById(`${cardId}_tab_${i}`);
       if (tab) tab.className = `fc-tab ${i === next ? "active" : ""}`;
+      const tile = document.getElementById(`${cardId}_tile_${i}`);
+      if (tile) tile.className = `task-tile ${i === next ? "active" : ""}`;
     }
+
+    // Update counter
+    const counter = document.getElementById(`${cardId}_counter`);
+    if (counter) counter.textContent = `${next + 1} / ${total}`;
 
     // Scroll active tab into view
     const activeTab = document.getElementById(`${cardId}_tab_${next}`);
