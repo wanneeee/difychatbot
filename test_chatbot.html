@@ -290,8 +290,6 @@
       user-select: none;
     }
 
-    .fc-face {}
-
     .fc-body {
       padding: 16px 18px 8px;
     }
@@ -480,6 +478,13 @@
     /* Touch swipe support */
     .fc-card { touch-action: pan-y; }
 
+    .task-grid-hint {
+      font-size: 12px;
+      color: #64748b;
+      text-align: center;
+      margin-bottom: 8px;
+    }
+
     /* ── Task grid (compact overview) ── */
     .task-grid {
       display: grid;
@@ -503,7 +508,7 @@
 
     .task-tile-img {
       width: 100%;
-      aspect-ratio: 1/1;
+      aspect-ratio: 16/9;
       background: linear-gradient(135deg, #dbeafe, #ede9fe);
       display: flex;
       align-items: center;
@@ -519,16 +524,19 @@
       object-fit: cover;
     }
 
-    .task-tile-time {
+    .task-tile-time,
+    .task-tile-score {
       position: absolute;
       bottom: 4px;
-      right: 4px;
       background: rgba(0,0,0,0.55);
       color: white;
       font-size: 10px;
       border-radius: 10px;
       padding: 1px 6px;
     }
+
+    .task-tile-time { right: 4px; }
+    .task-tile-score { left: 4px; }
 
     .task-tile-name {
       font-size: 11px;
@@ -542,7 +550,7 @@
       text-overflow: ellipsis;
     }
 
-    .task-detail { display: none; }
+    .task-detail { display: none; grid-column: 1 / -1; }
   </style>
 </head>
 <body>
@@ -710,22 +718,37 @@
     };
   }
 
+  // Fixes a specific LLM slip-up seen in the wild: a stray `" "` glued in front of a key,
+  // e.g. `," "encouragement": "..."` instead of `,"encouragement": "..."`.
+  // Only ever applied as a fallback after a normal JSON.parse has already failed,
+  // so well-formed JSON is never touched.
+  function repairJson(str) {
+    return str.replace(/,(\s*)"\s+"(\w+)"(\s*):/g, ',$1"$2"$3:');
+  }
+
   function appendMsg(content, type) {
     const chat = document.getElementById("chat");
 
     // Try to parse as JSON for pretty display
     if (type === "bot") {
       let parsed = null;
+      let clean = "";
       try {
-        let clean = content.replace(/```json|```/g, "").trim();
+        clean = content.replace(/```json|```/g, "").trim();
         const start = clean.indexOf("{");
         const end = clean.lastIndexOf("}");
         if (start !== -1 && end !== -1) {
           clean = clean.slice(start, end + 1);
         }
         parsed = JSON.parse(clean);
-      } catch(e) {
-        console.error("JSON parse error:", e, content.slice(0, 200));
+      } catch (e) {
+        // Fall back to a light repair pass before giving up on this message
+        try {
+          parsed = JSON.parse(repairJson(clean));
+          console.warn("JSON parse failed, recovered after repair:", e.message);
+        } catch (e2) {
+          console.error("JSON parse error (unrecoverable):", e2, content.slice(0, 200));
+        }
       }
 
       // Handle Dify format: {description, details}
@@ -779,7 +802,10 @@
     html += `<div class="overview-focus">🎯 ${data.overview.focus}</div>`;
     html += `</div>`;
 
-    // ── Compact grid: small image, name, time — click to see details ──
+    // ── Hint: tells the user the tiles are tappable ──
+    html += `<div class="task-grid-hint">👇 点击下方游戏卡片，查看详细玩法与训练建议</div>`;
+
+    // ── Compact grid: small image, name, time — fixed positions, never reflowed ──
     html += `<div class="task-grid" id="${cardId}_grid">`;
     data.tasks.forEach((task, i) => {
       html += `<div class="task-tile" id="${cardId}_tile_${i}" onclick="openTask('${cardId}',${i},${total})">`;
@@ -788,42 +814,19 @@
         ? `<img src="${task.image_url}" alt="${task.game_name}" onerror="this.parentElement.innerHTML='🎮'"/>`
         : `🎮`;
       html += `<div class="task-tile-time">⏱ ${task.duration_min}分</div>`;
+      html += `<div class="task-tile-score">🏆 ${task.target_score}分</div>`;
       html += `</div>`;
       html += `<div class="task-tile-name">${task.game_name}</div>`;
       html += `</div>`;
     });
     html += `</div>`; // task-grid
 
-    // ── Detail view (hidden until a tile is clicked) ──
-    html += `<div class="task-detail" id="${cardId}_detail">`;
-    html += `<div class="fc-outer">`;
-    html += `<div class="fc-tabs" id="${cardId}_tabs">`;
+    // ── Detail blocks live outside/below the grid so the tiles above never move.
+    // Only one is visible at a time (accordion), toggled by clicking a tile. ──
     data.tasks.forEach((task, i) => {
-      html += `<div class="fc-tab ${i===0?'active':''}" id="${cardId}_tab_${i}" onclick="goToCard('${cardId}',${i},${total})">任务${task.index}：${task.game_name}</div>`;
-    });
-    html += `</div>`;
-
-    // Counter badge
-    html += `<div class="fc-counter" id="${cardId}_counter">1 / ${total}</div>`;
-
-    // Card body
-    html += `<div class="fc-card" id="${cardId}_card">`;
-
-    // All task fronts + backs, hidden until opened via tile click
-    data.tasks.forEach((task, i) => {
-      const visible = 'style="display:none"';
-
-      // FRONT
-      html += `<div class="fc-face fc-front-face" id="${cardId}_front_${i}" ${visible}>`;
-      // Image
-      html += `<div class="fc-image">`;
-      if (task.image_url) {
-        html += `<img src="${task.image_url}" alt="${task.game_name}" onerror="this.parentElement.innerHTML='🎮'"/>`;
-      } else {
-        html += `🎮`;
-      }
-      html += `</div>`;
-      // Content
+      html += `<div class="task-detail" id="${cardId}_detail_${i}">`;
+      html += `<div class="fc-outer">`;
+      html += `<div class="fc-card">`;
       html += `<div class="fc-body">`;
       html += `<div class="fc-title">🎮 任务 ${task.index}：${task.game_name}</div>`;
       html += `<div class="fc-tags">`;
@@ -836,33 +839,14 @@
       html += `<div class="fc-section"><div class="fc-section-label">⚠️ 注意事项</div><ul class="fc-tips">`;
       task.tips.forEach(t => { html += `<li>${t}</li>`; });
       html += `</ul></div>`;
-      html += `<div class="fc-flip-btn" onclick="flipCard('${cardId}',${i})">查看详情 ↓</div>`;
-      html += `</div></div>`; // fc-body, fc-front-face
-
-      // BACK
-      html += `<div class="fc-face fc-back-face" id="${cardId}_back_${i}" style="display:none">`;
-      html += `<div class="fc-body fc-back-body">`;
-      html += `<div class="fc-title">🎮 任务 ${task.index}：${task.game_name}</div>`;
       html += `<div class="fc-section"><div class="fc-section-label">💡 为什么做？</div><div class="fc-section-text">${task.why_this}</div></div>`;
       html += `<div class="fc-section"><div class="fc-section-label">🤝 动作触发（可任选一种佩戴方案）</div><div class="fc-section-text">${task.trigger.replace(/[；;]\s*(?=方案\d)/g, "<br/>").replace(/ \/ /g, "<br/>")}</div></div>`;
       html += `<div class="fc-encourage">💪 ${task.encouragement}</div>`;
-      html += `<div class="fc-flip-btn" onclick="flipCard('${cardId}',${i})">收起 ↑</div>`;
-      html += `</div></div>`; // fc-body, fc-back-face
+      html += `</div>`; // fc-body
+      html += `</div>`; // fc-card
+      html += `</div>`; // fc-outer
+      html += `</div>`; // task-detail_i
     });
-
-    html += `</div>`; // fc-card
-
-    // ── Nav: dots only ──
-    html += `<div class="fc-nav">`;
-    html += `<div class="fc-dots" id="${cardId}_dots">`;
-    data.tasks.forEach((_, i) => {
-      html += `<div class="fc-dot ${i===0?'active':''}" id="${cardId}_dot_${i}"></div>`;
-    });
-    html += `</div>`;
-    html += `</div>`;
-
-    html += `</div>`; // fc-outer
-    html += `</div>`; // task-detail
 
     // ── Closing ──
     html += `<div class="closing-card">`;
@@ -885,120 +869,33 @@
     chat.scrollTop = chat.scrollHeight;
   }
 
-  function flipCard(cardId, index) {
-    const front = document.getElementById(`${cardId}_front_${index}`);
-    const back  = document.getElementById(`${cardId}_back_${index}`);
-    if (!front || !back) return;
-    const isBack = back.style.display !== "none";
-    front.style.display = isBack ? "" : "none";
-    back.style.display  = isBack ? "none" : "";
-  }
-
-  function openTask(cardId, next, total) {
-    const detail = document.getElementById(`${cardId}_detail`);
-    if (detail) detail.style.display = "";
-    goToCard(cardId, next, total);
-    if (detail) detail.scrollIntoView({ behavior: "smooth", block: "nearest" });
-  }
-
-  function goToCard(cardId, next, total) {
-    const wrappers = document.querySelectorAll(".rehab-card-wrapper");
-    let wrapper = null;
-    for (const w of wrappers) { if (w.dataset.cardId === cardId) { wrapper = w; break; } }
-    if (!wrapper) return;
-
-    // Hide/show all faces (idempotent, so it also works for the first open)
-    for (let i = 0; i < total; i++) {
-      const front = document.getElementById(`${cardId}_front_${i}`);
-      const back  = document.getElementById(`${cardId}_back_${i}`);
-      if (front) front.style.display = i === next ? "" : "none";
-      if (back)  back.style.display  = "none";
-
-      const dot = document.getElementById(`${cardId}_dot_${i}`);
-      if (dot) dot.className = `fc-dot ${i === next ? "active" : ""}`;
-      const tab = document.getElementById(`${cardId}_tab_${i}`);
-      if (tab) tab.className = `fc-tab ${i === next ? "active" : ""}`;
-      const tile = document.getElementById(`${cardId}_tile_${i}`);
-      if (tile) tile.className = `task-tile ${i === next ? "active" : ""}`;
+  function openTask(cardId, index, total) {
+    // Accordion: close whichever other task's detail is open
+    for (let j = 0; j < total; j++) {
+      if (j === index) continue;
+      const otherDetail = document.getElementById(`${cardId}_detail_${j}`);
+      if (otherDetail) otherDetail.style.display = "none";
+      const otherTile = document.getElementById(`${cardId}_tile_${j}`);
+      if (otherTile) otherTile.classList.remove("active");
     }
 
-    // Update counter
-    const counter = document.getElementById(`${cardId}_counter`);
-    if (counter) counter.textContent = `${next + 1} / ${total}`;
+    const detail = document.getElementById(`${cardId}_detail_${index}`);
+    const tile = document.getElementById(`${cardId}_tile_${index}`);
+    if (!detail) return;
 
-    // Scroll active tab into view
-    const activeTab = document.getElementById(`${cardId}_tab_${next}`);
-    if (activeTab) activeTab.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+    const isOpen = detail.style.display === "block";
+    if (isOpen) {
+      detail.style.display = "none";
+      if (tile) tile.classList.remove("active");
+      return;
+    }
 
-    wrapper.dataset.current = String(next);
+    detail.style.display = "block";
+    if (tile) tile.classList.add("active");
+    // Scroll to the tile itself (not the tall detail panel) so the game grid stays in view
+    // instead of being scrolled off-screen by the newly opened detail below it.
+    if (tile) tile.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }
-
-  function slideCard(cardId, dir, total) {
-    const wrappers = document.querySelectorAll(".rehab-card-wrapper");
-    let wrapper = null;
-    for (const w of wrappers) { if (w.dataset.cardId === cardId) { wrapper = w; break; } }
-    if (!wrapper) return;
-    const current = parseInt(wrapper.dataset.current || "0");
-    goToCard(cardId, Math.max(0, Math.min(total - 1, current + dir)), total);
-  }
-
-  // Touch swipe support
-  (function setupSwipe() {
-    let touchStartX = 0;
-    let touchCardId = null;
-    let touchTotal = 0;
-
-    document.addEventListener("touchstart", e => {
-      const card = e.target.closest(".fc-card");
-      if (!card) return;
-      const wrapper = card.closest(".rehab-card-wrapper");
-      if (!wrapper) return;
-      touchStartX = e.touches[0].clientX;
-      touchCardId = wrapper.dataset.cardId;
-      // find total by counting fronts
-      let i = 0;
-      while (document.getElementById(`${touchCardId}_front_${i}`)) i++;
-      touchTotal = i;
-    }, { passive: true });
-
-    document.addEventListener("touchend", e => {
-      if (!touchCardId) return;
-      const dx = e.changedTouches[0].clientX - touchStartX;
-      if (Math.abs(dx) > 50) {
-        slideCard(touchCardId, dx < 0 ? 1 : -1, touchTotal);
-      }
-      touchCardId = null;
-    }, { passive: true });
-
-    // Mouse drag support for desktop
-    let mouseStartX = 0;
-    let mouseCardId = null;
-    let mouseTotal = 0;
-    let isDragging = false;
-
-    document.addEventListener("mousedown", e => {
-      const card = e.target.closest(".fc-card");
-      if (!card) return;
-      const wrapper = card.closest(".rehab-card-wrapper");
-      if (!wrapper) return;
-      mouseStartX = e.clientX;
-      mouseCardId = wrapper.dataset.cardId;
-      let i = 0;
-      while (document.getElementById(`${mouseCardId}_front_${i}`)) i++;
-      mouseTotal = i;
-      isDragging = true;
-    });
-
-    document.addEventListener("mouseup", e => {
-      if (!isDragging || !mouseCardId) return;
-      const dx = e.clientX - mouseStartX;
-      if (Math.abs(dx) > 60) {
-        slideCard(mouseCardId, dx < 0 ? 1 : -1, mouseTotal);
-      }
-      isDragging = false;
-      mouseCardId = null;
-    });
-  })();
 
   function toggleRaw(id) {
     const el = document.getElementById(id);
@@ -1034,6 +931,9 @@
     chat.appendChild(typing);
     chat.scrollTop = chat.scrollHeight;
 
+    let fullText = "";
+    let streamError = null;
+
     try {
       const res = await fetch(`${apiUrl}/chat-messages`, {
         method: "POST",
@@ -1046,29 +946,69 @@
             user_id: userId
           },
           query: msg,
-          response_mode: "blocking",
+          response_mode: "streaming",
           conversation_id: conversationId,
           user: "test-user"
         })
       });
 
-      const data = await res.json();
-      typing.remove();
-
       if (!res.ok) {
+        // Non-streaming error response (e.g. bad key, bad request) — plain JSON body
+        let data = {};
+        try { data = await res.json(); } catch (e) {}
         if (data.message && data.message.includes("Query is required")) {
-          appendMsg("抱歉，刚才没有收到完整的消息内容，可以试试重新发一次「今天的康复计划」或「制定新计划」～", "error");
+          streamError = "抱歉，刚才没有收到完整的消息内容，可以试试重新发一次「今天的康复计划」或「制定新计划」～";
         } else {
-          appendMsg(`API 错误：${data.message || res.status}`, "error");
+          streamError = `API 错误：${data.message || res.status}`;
         }
       } else {
-        conversationId = data.conversation_id || conversationId;
-        appendMsg(data.answer, "bot");
-        setStatus(`✅ 对话进行中（会话ID：${conversationId.slice(0,8)}...）`);
+        // Parse the SSE stream: lines like "data: {...}\n\n"
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder("utf-8");
+        let buffer = "";
+
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+
+          const events = buffer.split("\n\n");
+          buffer = events.pop(); // keep the last (possibly incomplete) chunk
+
+          for (const evt of events) {
+            const line = evt.trim();
+            if (!line.startsWith("data:")) continue;
+            const jsonStr = line.slice(5).trim();
+            if (!jsonStr) continue;
+
+            let payload;
+            try { payload = JSON.parse(jsonStr); } catch (e) { continue; }
+
+            if (payload.event === "message" || payload.event === "agent_message") {
+              fullText += payload.answer || "";
+              typing.textContent = fullText || "康复助手正在回复...";
+              chat.scrollTop = chat.scrollHeight;
+            } else if (payload.event === "message_end") {
+              conversationId = payload.conversation_id || conversationId;
+            } else if (payload.event === "error") {
+              streamError = `API 错误：${payload.message || payload.code || "未知错误"}`;
+            }
+          }
+        }
       }
     } catch (err) {
-      typing.remove();
-      appendMsg(`网络错误：${err.message}`, "error");
+      streamError = `网络错误：${err.message}`;
+    }
+
+    typing.remove();
+
+    if (streamError) {
+      appendMsg(streamError, "error");
+    } else if (fullText) {
+      appendMsg(fullText, "bot");
+      setStatus(`✅ 对话进行中（会话ID：${conversationId.slice(0,8)}...）`);
+    } else {
+      appendMsg("抱歉，没有收到回复内容，请重试。", "error");
     }
 
     sendBtn.disabled = false;

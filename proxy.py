@@ -42,13 +42,21 @@ class ProxyHandler(BaseHTTPRequestHandler):
 
         try:
             with urllib.request.urlopen(req, context=ctx) as res:
-                data = res.read()
-                print(f"Dify 返回成功: {data[:200]}")
+                content_type = res.headers.get("Content-Type", "application/json")
+                print(f"Dify 返回成功，Content-Type: {content_type}")
                 self.send_response(200)
-                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Type", content_type)
                 self.send_header("Access-Control-Allow-Origin", "*")
+                self.send_header("Cache-Control", "no-cache")
                 self.end_headers()
-                self.wfile.write(data)
+
+                # 逐块转发，不等待完整响应，这样前端可以边收边显示（SSE 流式）
+                while True:
+                    chunk = res.read(512)
+                    if not chunk:
+                        break
+                    self.wfile.write(chunk)
+                    self.wfile.flush()
 
         except urllib.error.HTTPError as e:
             error_body = e.read()
