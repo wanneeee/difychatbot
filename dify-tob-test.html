@@ -1,0 +1,1208 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ToB Dify 工作流测试台</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #f0f4f8;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+
+    header {
+      background: #2563eb;
+      color: white;
+      padding: 14px 20px;
+      font-size: 16px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    header span { font-size: 20px; }
+
+    header .sub {
+      font-size: 12px;
+      font-weight: 400;
+      opacity: 0.85;
+      margin-left: auto;
+    }
+
+    main {
+      flex: 1;
+      display: flex;
+      overflow: hidden;
+    }
+
+    /* ── Left: config panel ── */
+    #configPanel {
+      width: 340px;
+      min-width: 300px;
+      background: #fff;
+      border-right: 1px solid #e2e8f0;
+      padding: 16px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .field-group {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .field-group label {
+      font-size: 12px;
+      font-weight: 600;
+      color: #334155;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .req-badge {
+      font-size: 10px;
+      font-weight: 700;
+      padding: 1px 6px;
+      border-radius: 8px;
+      background: #fee2e2;
+      color: #b91c1c;
+    }
+
+    .opt-badge {
+      font-size: 10px;
+      font-weight: 700;
+      padding: 1px 6px;
+      border-radius: 8px;
+      background: #e0f2fe;
+      color: #0369a1;
+    }
+
+    .field-hint {
+      font-size: 11px;
+      color: #94a3b8;
+    }
+
+    .field-group input,
+    .field-group select {
+      padding: 7px 10px;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      font-size: 13px;
+      width: 100%;
+      background: white;
+    }
+
+    .field-group input:invalid,
+    .field-group input.err {
+      border-color: #dc2626;
+      background: #fff5f5;
+    }
+
+    .section-title {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: #64748b;
+      margin-top: 6px;
+      padding-top: 10px;
+      border-top: 1px solid #e2e8f0;
+    }
+
+    .section-title:first-child { margin-top: 0; padding-top: 0; border-top: none; }
+
+    #saveBtn {
+      margin-top: 6px;
+      padding: 10px 16px;
+      background: #2563eb;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    #saveBtn:hover { background: #1d4ed8; }
+
+    #presetRow {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .preset-btn {
+      flex: 1;
+      min-width: 90px;
+      padding: 6px 8px;
+      font-size: 11px;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      background: #f8fafc;
+      color: #334155;
+      cursor: pointer;
+    }
+
+    .preset-btn:hover { background: #eff6ff; border-color: #93c5fd; }
+
+    #status {
+      font-size: 12px;
+      color: #64748b;
+      line-height: 1.5;
+      background: #f8fafc;
+      border-radius: 8px;
+      padding: 8px 10px;
+      white-space: pre-wrap;
+    }
+
+    #status.ok { color: #15803d; background: #f0fdf4; }
+    #status.err { color: #b91c1c; background: #fef2f2; }
+
+    /* ── Right: chat + outputs ── */
+    #rightCol {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+    }
+
+    #chat {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .msg {
+      max-width: 75%;
+      padding: 12px 16px;
+      border-radius: 16px;
+      font-size: 14px;
+      line-height: 1.6;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .msg.user {
+      align-self: flex-end;
+      background: #2563eb;
+      color: white;
+      border-bottom-right-radius: 4px;
+    }
+
+    .msg.bot {
+      align-self: flex-start;
+      background: white;
+      color: #1e293b;
+      border-bottom-left-radius: 4px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+    }
+
+    .msg.bot ul { margin: 4px 0 4px 18px; }
+    .msg.bot li { margin-bottom: 2px; }
+    .msg.bot strong { color: #1e293b; }
+
+    .msg.error {
+      align-self: flex-start;
+      background: #fee2e2;
+      color: #dc2626;
+      border-bottom-left-radius: 4px;
+    }
+
+    .msg.system {
+      align-self: center;
+      background: #fffbeb;
+      color: #92400e;
+      font-size: 12px;
+      border-radius: 8px;
+      max-width: 90%;
+    }
+
+    .typing {
+      align-self: flex-start;
+      color: #94a3b8;
+      font-size: 13px;
+      padding: 8px 0;
+    }
+
+    /* client_action / outputs banner */
+    .action-card {
+      align-self: flex-start;
+      max-width: 85%;
+      background: #eef2ff;
+      border: 1px solid #c7d2fe;
+      border-radius: 12px;
+      padding: 10px 14px;
+      font-size: 12px;
+      color: #3730a3;
+    }
+
+    .action-card .action-title {
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+
+    .action-card pre {
+      font-family: monospace;
+      white-space: pre-wrap;
+      font-size: 11px;
+      margin-top: 4px;
+    }
+
+    /* ── Input bar ── */
+    #inputbar {
+      background: white;
+      border-top: 1px solid #e2e8f0;
+      padding: 12px 16px;
+      display: flex;
+      gap: 10px;
+    }
+
+    #inputbar input {
+      flex: 1;
+      padding: 10px 14px;
+      border: 1px solid #cbd5e1;
+      border-radius: 24px;
+      font-size: 14px;
+      outline: none;
+    }
+
+    #inputbar input:focus { border-color: #2563eb; }
+
+    #inputbar button {
+      padding: 10px 20px;
+      background: #2563eb;
+      color: white;
+      border: none;
+      border-radius: 24px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+
+    #inputbar button:disabled { background: #93c5fd; cursor: not-allowed; }
+    #inputbar button:hover:not(:disabled) { background: #1d4ed8; }
+
+    /* ── Bottom: raw event log ── */
+    #logPanel {
+      height: 180px;
+      min-height: 100px;
+      border-top: 1px solid #e2e8f0;
+      background: #0f172a;
+      color: #7dd3fc;
+      font-family: monospace;
+      font-size: 11px;
+      overflow-y: auto;
+      padding: 8px 12px;
+      display: none;
+      white-space: pre-wrap;
+    }
+
+    #logPanel.open { display: block; }
+
+    #logToggle {
+      font-size: 11px;
+      color: #64748b;
+      cursor: pointer;
+      text-decoration: underline;
+      padding: 4px 16px;
+      background: white;
+      border-top: 1px solid #e2e8f0;
+    }
+
+    .log-line { margin-bottom: 4px; }
+    .log-line.evt-error { color: #fca5a5; }
+    .log-line.evt-workflow_finished { color: #86efac; }
+
+    /* ── Flashcard styles (rehab plan card) ── */
+    .rehab-card-wrapper { max-width: 600px; width: 100%; }
+
+    .overview-card {
+      background: white;
+      border-radius: 14px;
+      padding: 14px 16px;
+      margin-bottom: 12px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+      font-size: 13px;
+    }
+
+    .overview-card .greeting {
+      font-weight: 700;
+      font-size: 15px;
+      margin-bottom: 10px;
+      color: #1e293b;
+    }
+
+    .overview-stats {
+      background: #f1f5f9;
+      border-radius: 10px;
+      padding: 10px 12px;
+      margin-bottom: 8px;
+      color: #475569;
+      line-height: 1.8;
+    }
+
+    .overview-focus { color: #2563eb; font-size: 13px; }
+
+    .task-grid-hint {
+      font-size: 12px;
+      color: #64748b;
+      text-align: center;
+      margin-bottom: 8px;
+    }
+
+    .task-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .task-tile {
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+      overflow: hidden;
+      cursor: pointer;
+      border: 2px solid transparent;
+      transition: border-color 0.15s, transform 0.1s;
+    }
+
+    .task-tile:hover { transform: translateY(-2px); }
+    .task-tile.active { border-color: #2563eb; }
+
+    .task-tile-img {
+      width: 100%;
+      aspect-ratio: 16/9;
+      background: linear-gradient(135deg, #dbeafe, #ede9fe);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 28px;
+      color: #94a3b8;
+      position: relative;
+    }
+
+    .task-tile-img img { width: 100%; height: 100%; object-fit: cover; }
+
+    .task-tile-time, .task-tile-score {
+      position: absolute;
+      bottom: 4px;
+      background: rgba(0,0,0,0.55);
+      color: white;
+      font-size: 10px;
+      border-radius: 10px;
+      padding: 1px 6px;
+    }
+
+    .task-tile-time { right: 4px; }
+    .task-tile-score { left: 4px; }
+
+    .task-tile-name {
+      font-size: 11px;
+      font-weight: 600;
+      color: #1e293b;
+      padding: 6px 6px;
+      text-align: center;
+      line-height: 1.3;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .task-detail { display: none; grid-column: 1 / -1; }
+
+    .fc-outer {
+      position: relative;
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.10);
+      overflow: hidden;
+      margin-bottom: 12px;
+    }
+
+    .fc-card { width: 100%; background: white; overflow: hidden; cursor: pointer; user-select: none; }
+    .fc-body { padding: 16px 18px 8px; }
+
+    .fc-title { font-size: 16px; font-weight: 700; color: #1e293b; margin: 0 0 8px; }
+
+    .fc-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+
+    .fc-tag {
+      background: #eff6ff;
+      color: #2563eb;
+      border-radius: 20px;
+      padding: 3px 10px;
+      font-size: 11px;
+      font-weight: 500;
+    }
+
+    .fc-section { margin-bottom: 12px; }
+
+    .fc-section-label {
+      font-size: 12px;
+      font-weight: 700;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 4px;
+    }
+
+    .fc-section-text { font-size: 13px; color: #1e293b; line-height: 1.6; }
+
+    .fc-tips { padding-left: 16px; margin: 0; }
+    .fc-tips li { font-size: 13px; color: #1e293b; margin-bottom: 4px; line-height: 1.5; }
+
+    .fc-encourage {
+      background: #eff6ff;
+      color: #1d4ed8;
+      border-radius: 10px;
+      padding: 10px 12px;
+      font-style: italic;
+      font-size: 13px;
+      margin-top: 8px;
+    }
+
+    .closing-card {
+      background: #fffbeb;
+      border-radius: 14px;
+      padding: 14px 16px;
+      margin-top: 12px;
+      font-size: 13px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+    }
+
+    .toggle-raw {
+      font-size: 11px;
+      color: #94a3b8;
+      cursor: pointer;
+      margin-top: 10px;
+      text-decoration: underline;
+      text-align: center;
+    }
+
+    .raw-json {
+      display: none;
+      background: #1e293b;
+      color: #7dd3fc;
+      border-radius: 8px;
+      padding: 10px;
+      font-size: 11px;
+      font-family: monospace;
+      white-space: pre-wrap;
+      margin-top: 6px;
+      overflow-x: auto;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <span>🏥</span> ToB Dify 工作流测试台
+  <span class="sub">assistant_scope / llm_job_ticket / context / catalog 联调工具</span>
+</header>
+
+<main>
+  <!-- Config panel -->
+  <div id="configPanel">
+    <div class="section-title">连接信息</div>
+    <div class="field-group">
+      <label>Dify API URL</label>
+      <input id="apiUrl" type="text" value="http://localhost:9090" placeholder="http://localhost:9090"/>
+    </div>
+    <div class="field-group">
+      <label>App API Key</label>
+      <input id="apiKey" type="password" placeholder="粘贴 Dify App API Key（sk-...）"/>
+    </div>
+    <div class="field-group">
+      <label>Dify user（会话归属标识，非患者身份）</label>
+      <input id="difyUser" type="text" value="tob-tester" placeholder="tob-tester"/>
+    </div>
+
+    <div class="section-title">必填会话参数（inputs）</div>
+
+    <div class="field-group">
+      <label>assistant_scope <span class="req-badge">必填</span></label>
+      <select id="assistant_scope">
+        <option value="general">general</option>
+        <option value="patient">patient</option>
+        <option value="">（留空 — 测试缺失校验）</option>
+        <option value="admin">admin（非法值 — 测试异常校验）</option>
+      </select>
+    </div>
+
+    <div class="field-group">
+      <label style="flex-direction:row; justify-content:flex-start; gap:8px;">
+        <input type="checkbox" id="patient_context_enabled" style="width:auto;"/>
+        patient_context_enabled <span class="req-badge">必填</span>
+      </label>
+      <div class="field-hint">勾选 = true（patient 场景）；不勾选 = false（general 场景）</div>
+    </div>
+
+    <div class="field-group">
+      <label>llm_job_ticket <span class="req-badge">必填</span></label>
+      <input id="llm_job_ticket" type="text" value="preview-general-only" placeholder="测试环境票据（真实票据约 43 字符，如 6pnf2lJvA1Ee4zdXD7OjMQjX0z1znSEUJ3_TAnDmO6I）"/>
+      <div class="field-hint">仅用于 Authorization header，不应出现在回答或日志中</div>
+    </div>
+
+    <div class="field-group">
+      <label>context_schema_version <span class="req-badge">必填</span></label>
+      <input id="context_schema_version" type="text" value="patient_rehab_context_v1"/>
+    </div>
+
+    <div class="field-group">
+      <label>prompt_version <span class="req-badge">必填</span></label>
+      <input id="prompt_version" type="text" value="rehab_plan_v1"/>
+    </div>
+
+    <div class="field-group">
+      <label>catalog_version <span class="req-badge">必填</span></label>
+      <input id="catalog_version" type="number" value="1"/>
+    </div>
+
+    <div class="section-title">可选会话参数（patient 场景下按需必填）</div>
+
+    <div class="field-group">
+      <label>llm_context_url <span class="opt-badge">patient 必填</span></label>
+      <input id="llm_context_url" type="text" placeholder="https://.../context"/>
+    </div>
+
+    <div class="field-group">
+      <label>llm_rehab_plan_url <span class="opt-badge">生成计划时必填</span></label>
+      <input id="llm_rehab_plan_url" type="text" placeholder="https://.../rehab-plan"/>
+    </div>
+
+    <div class="field-group">
+      <label>target_plan_date <span class="opt-badge">生成计划时必填</span></label>
+      <input id="target_plan_date" type="date"/>
+    </div>
+
+    <div class="section-title">快速用例</div>
+    <div id="presetRow">
+      <button class="preset-btn" onclick="applyPreset('generalEmpty')">general·空可选项</button>
+      <button class="preset-btn" onclick="applyPreset('patientFull')">patient·参数齐全</button>
+      <button class="preset-btn" onclick="applyPreset('patientNoUrl')">patient·缺 context url</button>
+      <button class="preset-btn" onclick="applyPreset('patientNoPlanFields')">patient·缺计划字段</button>
+      <button class="preset-btn" onclick="applyPreset('missingScope')">缺 assistant_scope</button>
+      <button class="preset-btn" onclick="applyPreset('scopeEnabledMismatch')">scope/enabled 不一致</button>
+      <button class="preset-btn" onclick="applyPreset('versionMismatch')">版本故意写错</button>
+    </div>
+
+    <button id="saveBtn" onclick="saveConfig()">保存设置 / 开新会话</button>
+    <div id="status">⚙️ 请填入 API Key 和必填参数后保存</div>
+  </div>
+
+  <!-- Right column -->
+  <div id="rightCol">
+    <div id="chat"></div>
+    <div id="inputbar">
+      <input id="userInput" type="text" placeholder="输入测试问题..." onkeydown="if(event.key==='Enter') sendMessage()"/>
+      <button id="sendBtn" onclick="sendMessage()">发送</button>
+    </div>
+    <div id="logToggle" onclick="toggleLog()">▸ 显示原始 SSE 事件日志（用于核对 client_action / plan_saved / 票据泄漏）</div>
+    <div id="logPanel"></div>
+  </div>
+</main>
+
+<script>
+  let conversationId = "";
+  let apiKey = "";
+  let apiUrl = "http://localhost:9090";
+  let difyUser = "tob-tester";
+  let currentInputs = {};
+
+  // patient_context_enabled is a checkbox (always present, true or false) so it
+  // is intentionally excluded here — a generic "falsy = missing" check would
+  // wrongly flag a deliberate `false` value as absent.
+  const REQUIRED_FIELDS = ["assistant_scope", "llm_job_ticket", "context_schema_version", "prompt_version", "catalog_version"];
+
+  // The one and only valid context schema version per the ToB integration
+  // design (dify-workflow-configuration-v1.md §4.1) — any deviation, even an
+  // invisible one, should fail loudly here rather than surface as a mysterious
+  // backend mismatch later.
+  const EXPECTED_CONTEXT_SCHEMA_VERSION = "patient_rehab_context_v1";
+
+  const PRESETS = {
+    generalEmpty: {
+      assistant_scope: "general",
+      patient_context_enabled: "false",
+      llm_job_ticket: "preview-general-only",
+      context_schema_version: "patient_rehab_context_v1",
+      prompt_version: "rehab_plan_v1",
+      catalog_version: "1",
+      llm_context_url: "",
+      llm_rehab_plan_url: "",
+      target_plan_date: ""
+    },
+    patientFull: {
+      assistant_scope: "patient",
+      patient_context_enabled: "true",
+      llm_job_ticket: "test-ticket-patient-001",
+      context_schema_version: "patient_rehab_context_v1",
+      prompt_version: "rehab_plan_v1",
+      catalog_version: "1",
+      llm_context_url: "http://2nz1067951.iask.in:22634/api/integration/llm/v1/context",
+      llm_rehab_plan_url: "http://2nz1067951.iask.in:22634/api/integration/llm/v1/rehab-plan",
+      target_plan_date: new Date().toISOString().slice(0, 10)
+    },
+    patientNoUrl: {
+      assistant_scope: "patient",
+      patient_context_enabled: "true",
+      llm_job_ticket: "test-ticket-patient-002",
+      context_schema_version: "patient_rehab_context_v1",
+      prompt_version: "rehab_plan_v1",
+      catalog_version: "1",
+      llm_context_url: "",
+      llm_rehab_plan_url: "",
+      target_plan_date: ""
+    },
+    patientNoPlanFields: {
+      assistant_scope: "patient",
+      patient_context_enabled: "true",
+      llm_job_ticket: "test-ticket-patient-003",
+      context_schema_version: "patient_rehab_context_v1",
+      prompt_version: "rehab_plan_v1",
+      catalog_version: "1",
+      llm_context_url: "http://2nz1067951.iask.in:22634/api/integration/llm/v1/context",
+      llm_rehab_plan_url: "",
+      target_plan_date: ""
+    },
+    missingScope: {
+      assistant_scope: "",
+      patient_context_enabled: "false",
+      llm_job_ticket: "test-ticket-004",
+      context_schema_version: "patient_rehab_context_v1",
+      prompt_version: "rehab_plan_v1",
+      catalog_version: "1",
+      llm_context_url: "",
+      llm_rehab_plan_url: "",
+      target_plan_date: ""
+    },
+    scopeEnabledMismatch: {
+      assistant_scope: "general",
+      patient_context_enabled: "true",
+      llm_job_ticket: "test-ticket-006",
+      context_schema_version: "patient_rehab_context_v1",
+      prompt_version: "rehab_plan_v1",
+      catalog_version: "1",
+      llm_context_url: "",
+      llm_rehab_plan_url: "",
+      target_plan_date: ""
+    },
+    versionMismatch: {
+      assistant_scope: "patient",
+      patient_context_enabled: "true",
+      llm_job_ticket: "test-ticket-005",
+      context_schema_version: "patient_rehab_context_v0_STALE",
+      prompt_version: "rehab_plan_v1",
+      catalog_version: "99",
+      llm_context_url: "http://2nz1067951.iask.in:22634/api/integration/llm/v1/context",
+      llm_rehab_plan_url: "http://2nz1067951.iask.in:22634/api/integration/llm/v1/rehab-plan",
+      target_plan_date: new Date().toISOString().slice(0, 10)
+    }
+  };
+
+  function applyPreset(name) {
+    const p = PRESETS[name];
+    if (!p) return;
+    Object.keys(p).forEach(key => {
+      const el = document.getElementById(key);
+      if (!el) return;
+      if (key === "patient_context_enabled") {
+        el.checked = p[key] === "true";
+      } else {
+        el.value = p[key];
+      }
+    });
+    logLine("system", `已套用预设：${name}`);
+  }
+
+  // Keep patient_context_enabled aligned with assistant_scope by default so a
+  // manual scope switch doesn't leave a stale enabled flag (the exact mismatch
+  // the "scopeEnabledMismatch" preset exercises on purpose).
+  document.getElementById("assistant_scope").addEventListener("change", (e) => {
+    const enabledEl = document.getElementById("patient_context_enabled");
+    if (e.target.value === "patient") enabledEl.checked = true;
+    else if (e.target.value === "general") enabledEl.checked = false;
+  });
+
+  function setStatus(msg, cls) {
+    const el = document.getElementById("status");
+    el.textContent = msg;
+    el.className = cls || "";
+  }
+
+  function collectInputs() {
+    const scope = document.getElementById("assistant_scope").value.trim();
+    const inputs = {
+      assistant_scope: scope,
+      patient_context_enabled: document.getElementById("patient_context_enabled").checked,
+      llm_job_ticket: document.getElementById("llm_job_ticket").value.trim(),
+      context_schema_version: document.getElementById("context_schema_version").value.trim(),
+      prompt_version: document.getElementById("prompt_version").value.trim(),
+      catalog_version: Number(document.getElementById("catalog_version").value.trim())
+    };
+
+    // Optional fields are only attached when non-empty, mirroring how the ToB
+    // backend would omit them for `general` sessions rather than sending "".
+    const optional = {
+      llm_context_url: document.getElementById("llm_context_url").value.trim(),
+      llm_rehab_plan_url: document.getElementById("llm_rehab_plan_url").value.trim(),
+      target_plan_date: document.getElementById("target_plan_date").value.trim()
+    };
+    Object.keys(optional).forEach(k => {
+      if (optional[k]) inputs[k] = optional[k];
+    });
+
+    return inputs;
+  }
+
+  function validateInputs(inputs) {
+    const warnings = [];
+    REQUIRED_FIELDS.forEach(f => {
+      if (!inputs[f] && inputs[f] !== 0) warnings.push(`缺失必填字段：${f}`);
+    });
+    if (inputs.assistant_scope && !["general", "patient"].includes(inputs.assistant_scope)) {
+      warnings.push(`assistant_scope 非法值："${inputs.assistant_scope}"（预期发送后工作流应终止，不应默认降级）`);
+    }
+    if (inputs.assistant_scope === "patient" && !inputs.llm_context_url) {
+      warnings.push("patient 作用域缺失 llm_context_url（预期工作流应终止，不应静默跳过上下文读取）");
+    }
+    if (inputs.assistant_scope === "general" && inputs.patient_context_enabled === true) {
+      warnings.push("assistant_scope=general 但 patient_context_enabled=true，两者不一致（用于测试作用域校验）");
+    }
+    if (inputs.assistant_scope === "patient" && inputs.patient_context_enabled === false) {
+      warnings.push("assistant_scope=patient 但 patient_context_enabled=false，两者不一致（用于测试作用域校验）");
+    }
+    if (inputs.context_schema_version) {
+      const csv = inputs.context_schema_version;
+      if (csv !== EXPECTED_CONTEXT_SCHEMA_VERSION) {
+        warnings.push(`context_schema_version 不等于期望值 "${EXPECTED_CONTEXT_SCHEMA_VERSION}"（当前："${csv}"）——请检查是否有多余空格、大小写、隐藏字符或版本后缀`);
+      } else if (/[​‌‍﻿ ]/.test(csv)) {
+        // .trim() strips ordinary whitespace but not zero-width/non-breaking
+        // characters, which can sneak in from a paste and still fail a
+        // strict backend equality check even though the field "looks" right.
+        warnings.push("context_schema_version 中检测到零宽字符或不间断空格，即使显示正常也可能导致服务端比对失败");
+      }
+    }
+    return warnings;
+  }
+
+  function saveConfig() {
+    apiKey = document.getElementById("apiKey").value.trim();
+    apiUrl = document.getElementById("apiUrl").value.trim() || "http://localhost:9090";
+    difyUser = document.getElementById("difyUser").value.trim() || "tob-tester";
+
+    if (!apiKey) {
+      setStatus("❌ 请填入 API Key", "err");
+      return;
+    }
+
+    currentInputs = collectInputs();
+    const warnings = validateInputs(currentInputs);
+
+    conversationId = "";
+    document.getElementById("chat").innerHTML = "";
+    document.getElementById("logPanel").innerHTML = "";
+
+    if (warnings.length) {
+      setStatus("⚠️ 已保存（本轮为异常/边界用例）：\n" + warnings.join("\n"), "err");
+    } else {
+      setStatus("✅ 设置已保存，新会话已开始，可以发送测试问题了", "ok");
+    }
+
+    logLine("system", "本次 inputs：\n" + JSON.stringify(currentInputs, null, 2));
+  }
+
+  function toggleLog() {
+    const panel = document.getElementById("logPanel");
+    const toggle = document.getElementById("logToggle");
+    panel.classList.toggle("open");
+    toggle.textContent = panel.classList.contains("open")
+      ? "▾ 隐藏原始 SSE 事件日志"
+      : "▸ 显示原始 SSE 事件日志（用于核对 client_action / plan_saved / 票据泄漏）";
+  }
+
+  function logLine(kind, text) {
+    const panel = document.getElementById("logPanel");
+    const div = document.createElement("div");
+    div.className = `log-line evt-${kind}`;
+    div.textContent = `[${new Date().toLocaleTimeString()}] ${text}`;
+    panel.appendChild(div);
+    panel.scrollTop = panel.scrollHeight;
+  }
+
+  // Minimal markdown -> HTML for bot answers: bold, headers, bullet lists,
+  // line breaks. Escapes HTML first so the source text can't inject markup;
+  // only the handful of markdown patterns below are turned back into tags.
+  function renderMarkdown(text) {
+    let html = escapeHtml(text);
+
+    // Bold: **text**
+    html = html.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+
+    // Split into lines to group consecutive "- " bullets into a single <ul>
+    const lines = html.split("\n");
+    const out = [];
+    let inList = false;
+
+    for (const rawLine of lines) {
+      const line = rawLine.trim();
+      const bullet = line.match(/^[-*]\s+(.*)$/);
+
+      if (bullet) {
+        if (!inList) { out.push("<ul>"); inList = true; }
+        out.push(`<li>${bullet[1]}</li>`);
+        continue;
+      }
+      if (inList) { out.push("</ul>"); inList = false; }
+
+      if (!line) { out.push("<br/>"); continue; }
+      out.push(`<div>${line}</div>`);
+    }
+    if (inList) out.push("</ul>");
+
+    return out.join("");
+  }
+
+  // Fixes a specific LLM slip-up seen in the wild: a stray `" "` glued in front of a key,
+  // e.g. `," "encouragement": "..."` instead of `,"encouragement": "..."`.
+  // Only ever applied as a fallback after a normal JSON.parse has already failed,
+  // so well-formed JSON is never touched.
+  function repairJson(str) {
+    return str.replace(/,(\s*)"\s+"(\w+)"(\s*):/g, ',$1"$2"$3:');
+  }
+
+  function appendMsg(content, type) {
+    const chat = document.getElementById("chat");
+
+    // Try to parse as a rehab-plan card. The model sometimes appends trailing
+    // prose after the closing brace (e.g. "计划生成失败，请重试") — slicing
+    // between the first "{" and the last "}" strips that off before parsing.
+    if (type === "bot") {
+      let parsed = null;
+      let clean = "";
+      try {
+        clean = content.replace(/```json|```/g, "").trim();
+        const start = clean.indexOf("{");
+        const end = clean.lastIndexOf("}");
+        if (start !== -1 && end !== -1) {
+          clean = clean.slice(start, end + 1);
+        }
+        parsed = JSON.parse(clean);
+      } catch (e) {
+        try {
+          parsed = JSON.parse(repairJson(clean));
+          console.warn("JSON parse failed, recovered after repair:", e.message);
+        } catch (e2) {
+          console.error("JSON parse error (unrecoverable):", e2, content.slice(0, 200));
+        }
+      }
+
+      if (parsed && parsed.tasks && parsed.overview) {
+        appendJsonCard(parsed);
+        chat.scrollTop = chat.scrollHeight;
+        return;
+      }
+    }
+
+    const div = document.createElement("div");
+    div.className = `msg ${type}`;
+    if (type === "bot") {
+      div.innerHTML = renderMarkdown(content);
+    } else {
+      div.textContent = content;
+    }
+    chat.appendChild(div);
+    chat.scrollTop = chat.scrollHeight;
+  }
+
+  function appendJsonCard(data) {
+    const chat = document.getElementById("chat");
+    const wrapper = document.createElement("div");
+    wrapper.className = "msg bot rehab-card-wrapper";
+    wrapper.style.padding = "0";
+    wrapper.style.background = "transparent";
+    wrapper.style.boxShadow = "none";
+
+    const cardId = "fc_" + Date.now() + "_" + Math.random().toString(36).slice(2, 9);
+    const total = data.tasks.length;
+
+    let html = `<div class="overview-card">`;
+    html += `<div class="greeting">${escapeHtml(data.greeting || "")}</div>`;
+    html += `<div class="overview-stats">👤 ${escapeHtml(data.overview.age || "")} / ${escapeHtml(data.overview.gender || "")} &nbsp;|&nbsp; 🦴 ${data.overview.task_count || total} 个任务</div>`;
+    html += `<div class="overview-focus">🎯 ${escapeHtml(data.overview.focus || "")}</div>`;
+    html += `</div>`;
+
+    html += `<div class="task-grid-hint">👇 点击下方游戏卡片，查看详细玩法与训练建议</div>`;
+
+    html += `<div class="task-grid" id="${cardId}_grid">`;
+    data.tasks.forEach((task, i) => {
+      html += `<div class="task-tile" id="${cardId}_tile_${i}" onclick="openTask('${cardId}',${i},${total})">`;
+      html += `<div class="task-tile-img">`;
+      html += task.image_url
+        ? `<img src="${task.image_url}" alt="${escapeHtml(task.game_name || "")}" onerror="this.parentElement.innerHTML='🎮'"/>`
+        : `🎮`;
+      html += `<div class="task-tile-time">⏱ ${task.duration_min || 0}分</div>`;
+      html += `<div class="task-tile-score">🏆 ${task.target_score || 0}分</div>`;
+      html += `</div>`;
+      html += `<div class="task-tile-name">${escapeHtml(task.game_name || "")}</div>`;
+      html += `</div>`;
+    });
+    html += `</div>`;
+
+    data.tasks.forEach((task, i) => {
+      html += `<div class="task-detail" id="${cardId}_detail_${i}">`;
+      html += `<div class="fc-outer"><div class="fc-card"><div class="fc-body">`;
+      html += `<div class="fc-title">🎮 任务 ${task.index || i + 1}：${escapeHtml(task.game_name || "")}</div>`;
+      html += `<div class="fc-tags">`;
+      html += `<span class="fc-tag">🎯 ${escapeHtml(task.train_part || "")}</span>`;
+      html += `<span class="fc-tag">⏱ ${task.duration_min || 0}分钟</span>`;
+      html += `<span class="fc-tag">🏆 ${task.target_score || 0}分</span>`;
+      html += `<span class="fc-tag">📈 ${escapeHtml(task.difficulty || "")}</span>`;
+      html += `</div>`;
+      html += `<div class="fc-section"><div class="fc-section-label">🕹 游戏玩法</div><div class="fc-section-text">${escapeHtml(task.how_to_play || "")}</div></div>`;
+      html += `<div class="fc-section"><div class="fc-section-label">⚠️ 注意事项</div><ul class="fc-tips">`;
+      (task.tips || []).forEach(t => { html += `<li>${escapeHtml(t)}</li>`; });
+      html += `</ul></div>`;
+      html += `<div class="fc-section"><div class="fc-section-label">💡 为什么做？</div><div class="fc-section-text">${escapeHtml(task.why_this || "")}</div></div>`;
+      html += `<div class="fc-section"><div class="fc-section-label">🤝 动作触发</div><div class="fc-section-text">${escapeHtml(task.trigger || "").replace(/[；;]\s*(?=方案\d)/g, "<br/>")}</div></div>`;
+      html += `<div class="fc-encourage">💪 ${escapeHtml(task.encouragement || "")}</div>`;
+      html += `</div></div></div>`;
+      html += `</div>`;
+    });
+
+    html += `<div class="closing-card">`;
+    html += `<div style="font-weight:600;margin-bottom:6px">📋 整体建议</div>`;
+    html += `<div style="font-size:13px;color:#475569;margin-bottom:10px">${escapeHtml(data.overall_advice || "")}</div>`;
+    html += `<div style="font-weight:600;margin-bottom:6px">🌟 今日鼓励</div>`;
+    html += `<div style="font-size:13px;color:#1d4ed8">${escapeHtml(data.closing_encouragement || "")}</div>`;
+    html += `</div>`;
+
+    const rawId = "raw_" + cardId;
+    html += `<div class="toggle-raw" onclick="toggleRaw('${rawId}')">查看原始 JSON</div>`;
+    html += `<div id="${rawId}" class="raw-json">${escapeHtml(JSON.stringify(data, null, 2))}</div>`;
+
+    wrapper.innerHTML = html;
+    chat.appendChild(wrapper);
+    chat.scrollTop = chat.scrollHeight;
+  }
+
+  function openTask(cardId, index, total) {
+    for (let j = 0; j < total; j++) {
+      if (j === index) continue;
+      const otherDetail = document.getElementById(`${cardId}_detail_${j}`);
+      if (otherDetail) otherDetail.style.display = "none";
+      const otherTile = document.getElementById(`${cardId}_tile_${j}`);
+      if (otherTile) otherTile.classList.remove("active");
+    }
+
+    const detail = document.getElementById(`${cardId}_detail_${index}`);
+    const tile = document.getElementById(`${cardId}_tile_${index}`);
+    if (!detail) return;
+
+    const isOpen = detail.style.display === "block";
+    if (isOpen) {
+      detail.style.display = "none";
+      if (tile) tile.classList.remove("active");
+      return;
+    }
+
+    detail.style.display = "block";
+    if (tile) tile.classList.add("active");
+    if (tile) tile.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }
+
+  function toggleRaw(id) {
+    const el = document.getElementById(id);
+    el.style.display = el.style.display === "block" ? "none" : "block";
+  }
+
+  // Renders workflow_finished.data.outputs as a visible card so client_action /
+  // plan_saved can be eyeballed directly instead of only living in the log panel.
+  function appendOutputsCard(outputs) {
+    const chat = document.getElementById("chat");
+    const div = document.createElement("div");
+    div.className = "action-card";
+    let title = "📦 workflow_finished outputs";
+    if (outputs && outputs.client_action) {
+      title = `📦 client_action: ${outputs.client_action.type || "(未知类型)"}`;
+    }
+    div.innerHTML = `<div class="action-title">${title}</div><pre>${escapeHtml(JSON.stringify(outputs, null, 2))}</pre>`;
+    chat.appendChild(div);
+    chat.scrollTop = chat.scrollHeight;
+  }
+
+  function escapeHtml(str) {
+    return str.replace(/[&<>"']/g, c => ({
+      "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+    }[c]));
+  }
+
+  // Screens outgoing text for the raw ticket value so a leak into Answer text
+  // (the exact failure mode covered by test cases T32/T33) is caught immediately.
+  function checkTicketLeak(text) {
+    const ticket = currentInputs.llm_job_ticket;
+    if (ticket && text && text.includes(ticket)) {
+      logLine("error", `⚠️ 检测到 llm_job_ticket 原文出现在回答文本中！这是一个安全问题（对应 T32/T33）`);
+      appendMsg("⚠️ 安全警告：本轮回答文本中检测到 llm_job_ticket 原文，请检查工作流 Prompt / 知识库查询是否误用了该票据。", "error");
+    }
+  }
+
+  function isLatin1(str) {
+    for (let i = 0; i < str.length; i++) { if (str.charCodeAt(i) > 255) return false; }
+    return true;
+  }
+
+  function findNonLatin1HeaderValue() {
+    if (!isLatin1(apiKey)) return "API Key";
+    if (!isLatin1(difyUser)) return "Dify user";
+    // The Authorization header is built from this field directly, so it's the
+    // most common culprit — e.g. a pasted ticket with a full-width space or
+    // Chinese placeholder text left in by mistake.
+    if (currentInputs.llm_job_ticket && !isLatin1(currentInputs.llm_job_ticket)) return "llm_job_ticket";
+    return null;
+  }
+
+  let isSending = false;
+
+  async function sendMessage() {
+    if (isSending) return;
+
+    if (!apiKey) {
+      setStatus("❌ 请先填入 API Key 并点击保存设置", "err");
+      return;
+    }
+
+    // Header values must be ISO-8859-1 (Latin-1) — the fetch API throws a
+    // low-level, hard-to-read error otherwise. Catch it early and name the
+    // offending field instead of letting it surface as a generic "网络错误".
+    const headerLeak = findNonLatin1HeaderValue();
+    if (headerLeak) {
+      appendMsg(`❌ 无法发送：${headerLeak} 中包含非 ASCII 字符（如中文、全角符号），HTTP 请求头只允许 ISO-8859-1 字符。请检查并去除后重试。`, "error");
+      return;
+    }
+
+    const input = document.getElementById("userInput");
+    const msg = input.value.trim();
+    if (!msg) return;
+
+    isSending = true;
+    input.value = "";
+    appendMsg(msg, "user");
+
+    const sendBtn = document.getElementById("sendBtn");
+    sendBtn.disabled = true;
+
+    const chat = document.getElementById("chat");
+    const typing = document.createElement("div");
+    typing.className = "typing";
+    typing.textContent = "等待回复...";
+    chat.appendChild(typing);
+    chat.scrollTop = chat.scrollHeight;
+
+    let fullText = "";
+    let streamError = null;
+    let finalOutputs = null;
+
+    logLine("request", `POST ${apiUrl}/chat-messages\ninputs=${JSON.stringify(currentInputs)}\nquery=${msg}`);
+
+    try {
+      const res = await fetch(`${apiUrl}/chat-messages`, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${apiKey}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          inputs: currentInputs,
+          query: msg,
+          response_mode: "streaming",
+          conversation_id: conversationId,
+          user: difyUser
+        })
+      });
+
+      if (!res.ok) {
+        let data = {};
+        try { data = await res.json(); } catch (e) {}
+        streamError = `API 错误（HTTP ${res.status}）：${data.message || JSON.stringify(data)}`;
+        logLine("error", streamError);
+      } else {
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder("utf-8");
+        let buffer = "";
+
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+
+          const events = buffer.split("\n\n");
+          buffer = events.pop();
+
+          for (const evt of events) {
+            const line = evt.trim();
+            if (!line.startsWith("data:")) continue;
+            const jsonStr = line.slice(5).trim();
+            if (!jsonStr) continue;
+
+            let payload;
+            try { payload = JSON.parse(jsonStr); } catch (e) { continue; }
+
+            logLine(payload.event || "unknown", JSON.stringify(payload));
+
+            if (payload.event === "message" || payload.event === "agent_message") {
+              fullText += payload.answer || "";
+              typing.textContent = fullText || "等待回复...";
+              chat.scrollTop = chat.scrollHeight;
+            } else if (payload.event === "message_end") {
+              conversationId = payload.conversation_id || conversationId;
+            } else if (payload.event === "workflow_finished") {
+              finalOutputs = (payload.data && payload.data.outputs) || null;
+            } else if (payload.event === "error") {
+              streamError = `工作流错误：${payload.message || payload.code || "未知错误"}`;
+            }
+          }
+        }
+      }
+    } catch (err) {
+      streamError = `网络错误：${err.message}`;
+      logLine("error", streamError);
+    }
+
+    typing.remove();
+
+    if (streamError) {
+      appendMsg(streamError, "error");
+    } else if (fullText) {
+      appendMsg(fullText, "bot");
+      checkTicketLeak(fullText);
+      setStatus(`✅ 对话进行中（会话ID：${conversationId ? conversationId.slice(0, 8) : "-"}...）`, "ok");
+    } else {
+      appendMsg("未收到回复内容，请检查工作流是否已终止（可能是本轮参数触发了预期的校验失败）。", "system");
+    }
+
+    if (finalOutputs) {
+      appendOutputsCard(finalOutputs);
+    }
+
+    sendBtn.disabled = false;
+    isSending = false;
+    input.focus();
+  }
+</script>
+
+</body>
+</html>
